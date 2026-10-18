@@ -86,7 +86,7 @@ classDiagram
 
 ## Responsabilidades
 ```mermaid
-## 4. Responsabilidades
+### 4. Responsabilidades
 
 | Classe | Papel | Único motivo para mudar |
 |---|---|---|
