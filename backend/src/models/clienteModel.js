@@ -1,42 +1,44 @@
-// "Banco de dados" em memória: um array. Depois vira SQLite.
-let clientes = [];
-let proximoId = 1;
+import { db } from "../db.js";
 
+// Mesmo contrato da S3 (listar, buscarPorId, existeEmail, inserir,
+// atualizar, remover). Só o "como" mudou: o array virou tabela.
 export const clienteModel = {
   listar() {
-    return clientes;
+    return db.prepare("SELECT * FROM cliente ORDER BY id").all();
   },
 
   buscarPorId(id) {
-    return clientes.find((c) => c.id === id) ?? null;
+    return db.prepare("SELECT * FROM cliente WHERE id = ?").get(id) ?? null;
   },
 
   existeEmail(email) {
-    return clientes.some((c) => c.email === email);
+    const linha = db
+      .prepare("SELECT 1 FROM cliente WHERE email = ?")
+      .get(email);
+    return linha !== undefined;
   },
 
   inserir({ nome, email, telefone, idade }) {
-    const novo = {
-      id: proximoId++,
-      nome,
-      email,
-      telefone,
-      idade: idade ?? null,
-    };
-    clientes.push(novo);
-    return novo;
+    const r = db
+      .prepare(
+        "INSERT INTO cliente (nome, email, telefone, idade) VALUES (?, ?, ?, ?)",
+      )
+      .run(nome, email, telefone, idade ?? null);
+    return this.buscarPorId(r.lastInsertRowid);
   },
 
   atualizar(id, dados) {
-    const i = clientes.findIndex((c) => c.id === id);
-    if (i === -1) return null;
-    clientes[i] = { ...clientes[i], ...dados, id }; // o id nunca muda
-    return clientes[i];
+    const atual = this.buscarPorId(id);
+    if (!atual) return null;
+    const novo = { ...atual, ...dados };
+    db.prepare(
+      "UPDATE cliente SET nome = ?, email = ?, telefone = ?, idade = ? WHERE id = ?",
+    ).run(novo.nome, novo.email, novo.telefone, novo.idade ?? null, id); // o id nunca muda
+    return this.buscarPorId(id);
   },
 
   remover(id) {
-    const antes = clientes.length;
-    clientes = clientes.filter((c) => c.id !== id);
-    return clientes.length < antes; // true = removeu
+    const r = db.prepare("DELETE FROM cliente WHERE id = ?").run(id);
+    return r.changes > 0; // true = removeu
   },
 };

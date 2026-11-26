@@ -1,42 +1,53 @@
-let agendamentos = [];
-let proximoId = 1;
+import { db } from "../db.js";
 
+// Mesmo contrato da S3 (listar, listarPorCliente, buscarPorId, inserir,
+// atualizar, remover). Só o "como" mudou: o array virou tabela.
 export const agendamentoModel = {
   listar() {
-    return agendamentos;
+    return db.prepare("SELECT * FROM agendamento ORDER BY id").all();
   },
 
   listarPorCliente(clienteId) {
-    return agendamentos.filter((a) => a.clienteId === clienteId);
+    return db
+      .prepare("SELECT * FROM agendamento WHERE clienteId = ? ORDER BY id")
+      .all(clienteId);
   },
 
   buscarPorId(id) {
-    return agendamentos.find((a) => a.id === id) ?? null;
+    return db.prepare("SELECT * FROM agendamento WHERE id = ?").get(id) ?? null;
   },
 
   inserir({ horario, clienteId }) {
-    const novo = {
-      id: proximoId++,
-      horario: new Date(horario).toISOString(),
-      clienteId: Number(clienteId),
-      status: "agendado",
-      justificativaFalta: null,
-      criadoEm: new Date().toISOString(),
-    };
-    agendamentos.push(novo);
-    return novo;
+    const r = db
+      .prepare(
+        "INSERT INTO agendamento (horario, clienteId, status, justificativaFalta, criadoEm) VALUES (?, ?, 'agendado', NULL, ?)",
+      )
+      .run(
+        new Date(horario).toISOString(),
+        Number(clienteId),
+        new Date().toISOString(),
+      );
+    return this.buscarPorId(r.lastInsertRowid);
   },
 
   atualizar(id, dados) {
-    const i = agendamentos.findIndex((a) => a.id === id);
-    if (i === -1) return null;
-    agendamentos[i] = { ...agendamentos[i], ...dados, id };
-    return agendamentos[i];
+    const atual = this.buscarPorId(id);
+    if (!atual) return null;
+    const novo = { ...atual, ...dados };
+    db.prepare(
+      "UPDATE agendamento SET horario = ?, clienteId = ?, status = ?, justificativaFalta = ? WHERE id = ?",
+    ).run(
+      novo.horario,
+      Number(novo.clienteId),
+      novo.status,
+      novo.justificativaFalta ?? null,
+      id, // o id nunca muda
+    );
+    return this.buscarPorId(id);
   },
 
   remover(id) {
-    const antes = agendamentos.length;
-    agendamentos = agendamentos.filter((a) => a.id !== id);
-    return agendamentos.length < antes;
+    const r = db.prepare("DELETE FROM agendamento WHERE id = ?").run(id);
+    return r.changes > 0; // true = removeu
   },
 };
