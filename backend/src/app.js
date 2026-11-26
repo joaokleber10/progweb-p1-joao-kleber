@@ -1,10 +1,16 @@
 import express from "express";
+import cors from "cors";
 import clientesRouter from "./routes/clientes.js";
 import agendamentosRouter from "./routes/agendamentos.js";
 import { logger } from "./middleware/logger.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 
 const app = express();
+app.use(
+  cors({
+    origin: ["http://localhost:5500", "http://217.70.168.132:5500"],
+  }),
+);
 
 // --- Middleware global (antes das rotas) ---
 app.use(express.json()); // lê o body JSON para req.body
